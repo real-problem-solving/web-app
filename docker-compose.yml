@@ -2,6 +2,13 @@ services:
   web:
     build: .
     container_name: web_app
+    volumes:
+      - .:/web-app
+    environment:
+      # - FLASK_APP=app/app.py
+      - FLASK_DEBUG=1
+      - PYTHONPATH=/web-app
+    command: python app/app.py
 
     depends_on:
       - db
