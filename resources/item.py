@@ -4,6 +4,8 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from db.db import items
 
+from resources.schemas import ItemSchema, ItemUpdateSchema
+
 blp = Blueprint("items", __name__, description="Operations on items")
 
 
@@ -12,13 +14,9 @@ class ItemList(MethodView):
     def get(self):
         return {"items": list(items.values())}
 
-    def post(self):
-        request_data = request.get_json()
-
-        if ("price" not in request_data or "store_id" not in request_data 
-            or "name" not in request_data):
-            abort(400, description="Bad Request: Missing required fields: price, store_id, name")
-        
+    @blp.arguments(ItemSchema)
+    def post(self, request_data):
+         
         for item in items.values():
             if item['name'] == request_data['name'] and item['store_id'] == request_data['store_id']:
                 abort(400, description="Item already exists in this store")
@@ -43,10 +41,8 @@ class Item(MethodView):
         except KeyError:
             abort(404, description="Item not found")
     
-    def put(self, item_id):
-        request_data = request.get_json()
-        if "name" not in request_data or "price" not in request_data:
-            abort(400, description="Bad Request: Missing required fields 'name' or 'price'")
+    @blp.arguments(ItemUpdateSchema)
+    def put(self, request_data, item_id):
         
         try:
             item = items[item_id]

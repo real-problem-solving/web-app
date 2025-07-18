@@ -4,6 +4,8 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, Api
 from db.db import stores
 
+from resources.schemas import StoreSchema
+
 
 
 blp = Blueprint("stores", __name__, description="Operations on stores")
@@ -14,10 +16,9 @@ class StoreList(MethodView):
     def get(self):
         return {"stores": list(stores.values())}, 200
 
-    def post(self):
-        request_data = request.get_json()
-        if "name" not in request_data:
-            abort(400, description="Bad Request: Missing required field 'name'")
+    @blp.arguments(StoreSchema)
+    def post(self, request_data):
+        
         for store in stores.values():
             if store['name'] == request_data['name']:
                 abort(400, description="Store already exists with this name")
