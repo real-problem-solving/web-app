@@ -19,41 +19,20 @@ class TagsInStore(MethodView):
     @blp.arguments(TagSchema)
     @blp.response(201, TagSchema)
     def post(self, request_data, store_id):
-        store = StoreModel.query.get_or_404(store_id)
-        tag = TagModel(name=request_data['name'], store=store)
+        # store = StoreModel.query.get_or_404(store_id)
+        # tag = TagModel(name=request_data['name'], store=store)
+        if TagModel.query.filter(StoreModel.id == store_id, TagModel.name == request_data['name']).first():
+            abort(409, message="A tag with that name already exists in this store.")
+        tag = TagModel(**request_data, store_id=store_id)
         try:
             db.session.add(tag)
             db.session.commit()
-        except SQLAlchemyError:
-            abort(500, description="An error occurred while inserting the tag.")
+        except SQLAlchemyError as e:
+            abort(500, description="An error occurred while inserting the tag.", error=str(e))
         
         return tag
 
-@blp.route("/tag/<string:tag_id>")
-class Tag(MethodView):
-    @blp.response(200, TagSchema)
-    def get(self, tag_id):
-        tag = TagModel.query.get_or_404(tag_id)
-        return tag
-    
-    def delete(self, tag_id):
-        tag = TagModel.query.get_or_404(tag_id)
-        db.session.delete(tag)
-        db.session.commit()
-        return {"message": "Tag deleted"}, 200
-    
-    @blp.arguments(TagSchema)
-    @blp.response(200, TagSchema)
-    def put(self, request_data, tag_id):
-        tag = TagModel.query.get(tag_id)
-        if tag:
-            tag.name = request_data.get('name', tag.name)
-        else:
-            abort(404, description="Tag not found.")
-        
-        db.session.add(tag)
-        db.session.commit()
-        return tag
+
     
 @blp.route('/item/<string:item_id>/tag/<string:tag_id>')
 class LinkTagsToItem(MethodView):
@@ -69,23 +48,24 @@ class LinkTagsToItem(MethodView):
             db.session.commit()
         except SQLAlchemyError:
             abort(500, description="An error occurred while linking the tag to the item.")
-        return tag
+        return {"message": "Tag linked to item", "tag": tag, "item": item}
     
     @blp.response(200, ItemTagSchema)
     def delete(self, item_id, tag_id):
         item = ItemModel.query.get_or_404(item_id)
         tag = TagModel.query.get_or_404(tag_id)
 
-        item.tags.remove(tag)
+        if tag in item.tags:
+            item.tags.remove(tag)
+            try:
+                db.session.commit()
+            except SQLAlchemyError:
+                abort(500, description="An error occurred while unlinking the tag from the item.")
+            return {"message": "Tag unlinked from item", "tag": tag, "item": item}
+        else:
+            abort(404, description="Tag not associated with this item.")
 
-        try:
-            db.session.add(item)
-            db.session.commit()
-        except SQLAlchemyError:
-            abort(500, description="An error occurred while unlinking the tag from the item.")
-        return {"message": "Tag unlinked from item", "tag":tag, "item":item}
-
-@blp.route('/tag/<string:tag_id>')
+@blp.route('/tag/<string:tag_id>') 
 class TagDelete(MethodView):
     @blp.response(200, TagSchema)
     def get(self, tag_id):
